@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-
+using System.Windows.Input;
 
 namespace MainMenu
 {
@@ -15,16 +15,25 @@ namespace MainMenu
     {
         static int w, h;
 
+        public bool Left { get; set; }
+        public bool Right { get; set; }
+        public bool Up { get; set; }
+        public bool Down { get; set; }
+
         // Inizialisiere Bild (komisch wieso ich das hier machen muss und nicht in der eigentlichen funktion dafür...)
-        Bitmap LinkWalkAnim = new Bitmap("E:\\Das-Labyrinth\\Grundgerüst\\MainMenu\\MainMenu\\src\\link_move_anim.png");
+        //Bitmap LinkWalkAnim = new Bitmap("E:\\Das-Labyrinth\\Grundgerüst\\MainMenu\\MainMenu\\src\\link_move_anim.png");
+        Bitmap LinkWalkAnim = new Bitmap("C:\\Users\\Radiac\\Desktop\\Grundgerüst\\MainMenu\\MainMenu\\src\\link_move_anim.png");
+        static byte figureFrame = 0;
+
         Boolean isDebug = true;
-        Boolean isStart = false;
+        Boolean isStart = true;
 
         public ActionCanvas()
         {
             //SetStyle(ControlStyles.OptimizedDoubleBuffer, true);
             //UpdateStyles();
             InitializeComponent();
+            btnStart.Visible = false;
             try
             {
                 // Inizialisiere Bild
@@ -36,7 +45,7 @@ namespace MainMenu
             // Erstellt Form unabhängigen Timer
 
             System.Timers.Timer a = new System.Timers.Timer();      // Neues Timer-Objekt
-            a.Interval = 10;                                        // Intervall der Ausführung der A_Elapsed-Methode
+            a.Interval = 1;                                        // Intervall der Ausführung der A_Elapsed-Methode
             a.Elapsed += A_Elapsed;
             a.Enabled = true;
         }
@@ -57,13 +66,27 @@ namespace MainMenu
             }
         }
 
+        DateTime lastUpdate = DateTime.MinValue; // Letzer Zeitpunkt des Updates von Game-Logik
+        TimeSpan updateInterval = new TimeSpan(0, 0, 0, 0, 50); // Wie oft soll die Game-Logik aktualisiert werden (50ms)
+       
         // Loop-Methode die alle x ms aufgerufen wird (siehe Intervall System-Timers)
         private void A_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
         {
             if (isStart)
             {
             }
+
+            // Wenn Jetzt - letzter Zeitpunkt des Game-Logik-Updates grösser als die 50ms Update-Intervall sind, dann erneut Updaten
+            if (DateTime.Now - lastUpdate > updateInterval)
+            {
+                // Hier wird nun die Logik des Spiels vorwärts getrieben, bzw. das vom Frame erhöhen
+                UpdateGameLogic();
+                lastUpdate = DateTime.Now; // Zuletzt updated = Jetzt
+            }
+
+            // Immer Zeichnen
             Repaint(); // Ruft Methode zum übermalen der aktuellen Leinwand auf
+            // Colli Logik hier rein weil keine framesperre
         }
 
         // Refresh Methode zur Bereinigung der Leinwand
@@ -88,61 +111,90 @@ namespace MainMenu
         int xLinkWalkAnim = 10;
         int yLinkWalkAnim = 10;
 
-        static int speedObject = 1;
-        static Boolean up = false, down = true, left = false, right = false;
+        static int speedObject = 2;
             public void moveObject()
         {
-            if (up)
+            if (Up)
             {
                 yLinkWalkAnim -= speedObject;
+                figureFrame = getFrame(figureFrame, (byte)14, (byte)20,(byte)4);
             }
-            if (down)
+            if (Down)
             {
                 yLinkWalkAnim += speedObject;
+                figureFrame = getFrame(figureFrame, (byte)21, (byte)27, (byte)4);
             }
-            if (left)
+            if (Left)
             {
                 xLinkWalkAnim -= speedObject;
+                figureFrame = getFrame(figureFrame, (byte)7, (byte)13, (byte)4);
             }
-            if (right)
+            if (Right)
             {
                 xLinkWalkAnim += speedObject;
+                figureFrame = getFrame(figureFrame, (byte)0, (byte)6, (byte)4);
             }
         }
 
         // Simuliere Input
         // Rechteckige Bahn
-        static int i = 0;
-        public void moveRect()
-        {
-            i++;
-            switch (i)
-            {
-                case 150: down = false; right = true;
-                    break;
-                case 300: right = false; up = true;
-                    break;
-                case 450: up = false; left = true;
-                    break;
-                case 600: left = false; down = true; i = 0;
-                    break;
-                default:
-                    break;
-            }
+        //static int i = 0;
+        //public void moveRect()
+        //{
+        //    i++;
+        //    switch (i)
+        //    {
+        //        case 120: down = false; right = true;
+        //            break;
+        //        case 240: right = false; up = true;
+        //            break;
+        //        case 360: up = false; left = true;
+        //            break;
+        //        case 480: left = false; down = true; i = 0;
+        //            break;
+        //        default:
+        //            break;
+        //    }
+        //}
+
+        // plotFrame Methode initialisiert und definiert das Bild und die Bereiche
+        public static void plotFrame (
+            Bitmap bitmap, // Bildobjekt laden
+            int width, // Bildlänge eines Frames
+            int height, // Bildhöhe eines Frames
+            int frame, // Frame zur kontrolle der Geschwindigkeit
+            int x, //Position des Bild x
+            int y, // Position des Bild y
+            PaintEventArgs e
+            ) {
+            Rectangle clipRect = new Rectangle(x, y, width, height); // Clippingbereich definieren
+            e.Graphics.SetClip(clipRect); // Clippen
+            e.Graphics.DrawImage(bitmap, x-frame*width, y); // Zieht den Animationsstreifen per Frame (x-Pos des Bildes - Frame * Bildlänge) 
         }
 
-        // Versuche eigene Methode zu bauen für autom. clipping die auf alle zukünftigen Objekte angewendet werden können
-        public static void plotFrame(Image image, int width, int height, int frame, int x, int y, PaintEventArgs e)
+        // Eine Methode zur Kontrolle der Framerate um das Bild langsamer zu machen (klappt nicht so ganz :P)
+        static byte timerFrame = 0;
+        public static byte getFrame(byte frame, byte min, byte max, byte step) {
+            if (frame < min || frame > max) frame = min;
+            if (step < 1) step = 1;
+            if (timerFrame % step == 0)
+            {
+                frame++;
+                if (frame > max) frame = (byte) min;
+            }
+            return frame;
+        }
+
+        // Spiel-Logik die etwas verlangsamt ausgeführt wird gegenüber dem Zeichnen (kontrolliert)
+        void UpdateGameLogic()
         {
-            Rectangle clipRect = new Rectangle(0, 0, 25, 30);
-            e.Graphics.SetClip(clipRect);
+            moveObject();
+            debugMode();
         }
 
         // Leinwand Methode die alles grafische darstellt
         private void ActionCanvas_Paint(object sender, PaintEventArgs e)
         {
-            if (isStart)
-            {
                 //e.Graphics.DrawRectangle(Pens.Black, 30, 30, 0+i, 0+i); // lusdisch... aber useless xD
                 //e.Graphics.DrawImage(LinkWalkAnim, new Point(xLinkWalkAnim, yLinkWalkAnim));
 
@@ -152,29 +204,64 @@ namespace MainMenu
                 Heisst: Bild ist 700 x30. Es handelt sich bei der Animation um 28 Einzerlbilder. Bedeutet 700 / 28 = 25. Bedeutet wir clippen
                 ein Feld von 25 x 30.
                 */
+            //Rectangle clipRect = new Rectangle(0, 0, 25, 30);
+            //e.Graphics.SetClip(clipRect);
+            //e.Graphics.DrawImage(LinkWalkAnim, 0, 0, LinkWalkAnim.Width, LinkWalkAnim.Height);
 
-                Rectangle clipRect = new Rectangle(0, 0, 25, 30);
-                //Rectangle clipRectEnd = new Rectangle(0, 0, w, h);
-                e.Graphics.SetClip(clipRect);
-                e.Graphics.DrawImage(LinkWalkAnim, 0, 0, LinkWalkAnim.Width, LinkWalkAnim.Height);
+            /* ---Image Loading mit Transparenz)
+            Hier erstellen wir ein Image-Objekt. Davon holen wir die Hintergrundfarbe (R = 255, G = 0, B = 255) und sagen,
+            dass diese Transparent sein soll.
+            Unmittelbar danach, laden wir das das gleiche Objekt nochmal nur das diesesmal die Hintergrundfarbe Transparent ist.
+            Ich denke mal, dass wir das in einer Toolbox später auslagern können und wenn wir uns auf eine allgemeine Transparentfarbe einigen,
+            wir nicht stetig prüfen müssen um welche Hintergrundfarbe es sich handelt beim aktuellen Objekt.
+            */
 
-                /* ---Image Loading mit Transparenz)
-                Hier erstellen wir ein Image-Objekt. Davon holen wir die Hintergrundfarbe (R = 255, G = 0, B = 255) und sagen,
-                dass diese Transparent sein soll.
-                Unmittelbar danach, laden wir das das gleiche Objekt nochmal nur das diesesmal die Hintergrundfarbe Transparent ist.
-                Ich denke mal, dass wir das in einer Toolbox später auslagern können und wenn wir uns auf eine allgemeine Transparentfarbe einigen,
-                wir nicht stetig prüfen müssen um welche Hintergrundfarbe es sich handelt beim aktuellen Objekt.
-                */
+            //e.Graphics.DrawImage(LinkWalkAnim, 0, 0, LinkWalkAnim.Width, LinkWalkAnim.Height);
+            // plotMethode zeichnen
+            plotFrame(LinkWalkAnim, 25, 30, figureFrame, xLinkWalkAnim, yLinkWalkAnim, e);
+            Color backColor = LinkWalkAnim.GetPixel(1, 1);
+            LinkWalkAnim.MakeTransparent(backColor);
 
-                e.Graphics.DrawImage(LinkWalkAnim, 0, 0, LinkWalkAnim.Width, LinkWalkAnim.Height);
-                Color backColor = LinkWalkAnim.GetPixel(1, 1);
-                LinkWalkAnim.MakeTransparent(backColor);
-                //e.Graphics.DrawImage(LinkWalkAnim, 0, 0, LinkWalkAnim.Width, LinkWalkAnim.Height);
+            // Moving around some stuff
+            //moveRect();
+        }
 
+        //InputManager
+        private void ActionCanvas_KeyDown(object sender, KeyEventArgs e)
+        {
+            switch (e.KeyCode)
+            {
+                case Keys.Left:
+                    Left = true;
+                    break;
+                case Keys.Right:
+                    Right = true;
+                    break;
+                case Keys.Up:
+                    Up = true;
+                    break;
+                case Keys.Down:
+                    Down = true;
+                    break;
+            }
+        }
 
-                // Moving around some stuff
-                moveObject();
-                moveRect();
+        private void ActionCanvas_KeyUp(object sender, KeyEventArgs e)
+        {
+            switch (e.KeyCode)
+            {
+                case Keys.Left:
+                    Left = false;
+                    break;
+                case Keys.Right:
+                    Right = false;
+                    break;
+                case Keys.Up:
+                    Up = false;
+                    break;
+                case Keys.Down:
+                    Down = false;
+                    break;
             }
         }
 

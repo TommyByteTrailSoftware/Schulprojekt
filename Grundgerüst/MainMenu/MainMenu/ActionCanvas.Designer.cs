@@ -51,8 +51,10 @@
             this.Controls.Add(this.btnStart);
             this.DoubleBuffered = true;
             this.Name = "ActionCanvas";
-            this.Text = "Form1";
+            this.Text = "Canvas";
             this.Paint += new System.Windows.Forms.PaintEventHandler(this.ActionCanvas_Paint);
+            this.KeyDown += new System.Windows.Forms.KeyEventHandler(this.ActionCanvas_KeyDown);
+            this.KeyUp += new System.Windows.Forms.KeyEventHandler(this.ActionCanvas_KeyUp);
             this.ResumeLayout(false);
 
         }
